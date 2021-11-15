@@ -1,0 +1,65 @@
+parameters:
+- name: 'BACKUP_MANAGEMENT_TYPE'
+  type: string
+  default: 'AzureStorage'
+- name: 'VAULT_NAME'
+  type: string
+  default: 'target-vault'
+- name: 'RESOURCE_GROUP'
+  type: string
+  default: 'target-group'
+- name: 'CONTAINER_NAME'
+  type: string
+  default: 'target-storage'
+- name: 'ITEM_NAME'
+  type: string
+  default: 'target-file-share'
+- name: 'RETAIN_UNTIL'
+  type: string
+  default: 'retain-date'
+- name: 'AZURE_SERVICE_CONNECTION'
+  type: string
+  default: 'azurerm-service-connection'
+- name: 'BACKUP_STATUS'
+  type: string
+  default: 'Failed'
+
+jobs:
+  - job: install_azure_cli
+    displayName: Install Azure CLI
+    steps:
+    - script: |
+        set -e
+        if ! which az &> /dev/null; then
+          curl -Ls -o azure-cli_bionic_all.deb https://aka.ms/InstallAzureCliBionicEdge && sudo dpkg -i azure-cli_bionic_all.deb
+        fi
+  - job: file_share_backup
+    displayName: File share on-demand backup
+    steps:
+    - script: |
+        RETAIN_DATE=$(date --date="-17 days ago" +%d-%m-%Y)
+        echo "$RETAIN_DATE"
+        echo "##vso[task.setvariable variable=RETAIN_DATE] ${RETAIN_DATE}"  
+    - task: AzureCLI@2
+      displayName: 'Azure CLI: Backup file share'
+      inputs:
+        scriptType: bash
+        azureSubscription: ${{parameters.AZURE_SERVICE_CONNECTION}}
+        scriptLocation: inlineScript
+        inlineScript: |
+          az backup protection backup-now --backup-management-type ${{parameters.BACKUP_MANAGEMENT_TYPE}} --vault-name ${{parameters.VAULT_NAME}} --resource-group ${{parameters.RESOURCE_GROUP}} --container-name ${{parameters.CONTAINER_NAME}} \
+          --item-name ${{parameters.ITEM_NAME}} --retain-until ${RETAIN_DATE} --output table
+          REQUIRED_STATUS="Completed"; 
+          for run in {1..5}; do
+            echo "Checking backup status"
+            CHECK_STATUS=$(az backup item list --resource-group rnd-uvindu --vault-name uvindu-test-vault --query [0].properties.lastBackupStatus -o tsv)
+            echo lastBackupStatus:$CHECK_STATUS
+            if [ "$REQUIRED_STATUS" == "$CHECK_STATUS" ]
+            then
+              echo "Backup is completed sucessfully"
+            exit 0
+            fi
+            sleep 10
+          done
+          echo "Backup creation failed"
+          exit 1
