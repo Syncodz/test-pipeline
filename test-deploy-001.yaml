@@ -1,28 +1,13 @@
 parameters:
-- name: 'BACKUP_MANAGEMENT_TYPE'
+- name: 'STORAGE_ACCOUNT_NAME'
   type: string
-  default: 'AzureStorage'
-- name: 'VAULT_NAME'
-  type: string
-  default: 'target-vault'
+  default: 'rg-asgrndv3-main-rndv3-eastus2-003'
 - name: 'RESOURCE_GROUP'
   type: string
-  default: 'target-group'
-- name: 'CONTAINER_NAME'
-  type: string
-  default: 'target-storage'
-- name: 'ITEM_NAME'
-  type: string
-  default: 'target-file-share'
-- name: 'RETAIN_UNTIL'
-  type: string
-  default: 'retain-date'
+  default: 'rg-asgrndv3-main-rndv3-eastus2-003'
 - name: 'AZURE_SERVICE_CONNECTION'
   type: string
-  default: 'azurerm-service-connection'
-- name: 'BACKUP_STATUS'
-  type: string
-  default: 'Failed'
+  default: 'asgrndv3-test-storage-account'
 
 jobs:
   - job: install_azure_cli
@@ -35,11 +20,7 @@ jobs:
         fi
   - job: file_share_backup
     displayName: File share on-demand backup
-    steps:
-    - script: |
-        RETAIN_DATE=$(date --date="-17 days ago" +%d-%m-%Y)
-        echo "$RETAIN_DATE"
-        echo "##vso[task.setvariable variable=RETAIN_DATE] ${RETAIN_DATE}"  
+    steps: 
     - task: AzureCLI@2
       displayName: 'Azure CLI: Backup file share'
       inputs:
@@ -47,19 +28,4 @@ jobs:
         azureSubscription: ${{parameters.AZURE_SERVICE_CONNECTION}}
         scriptLocation: inlineScript
         inlineScript: |
-          az backup protection backup-now --backup-management-type ${{parameters.BACKUP_MANAGEMENT_TYPE}} --vault-name ${{parameters.VAULT_NAME}} --resource-group ${{parameters.RESOURCE_GROUP}} --container-name ${{parameters.CONTAINER_NAME}} \
-          --item-name ${{parameters.ITEM_NAME}} --retain-until ${RETAIN_DATE} --output table
-          REQUIRED_STATUS="Completed"; 
-          for run in {1..5}; do
-            echo "Checking backup status"
-            CHECK_STATUS=$(az backup item list --resource-group rnd-uvindu --vault-name uvindu-test-vault --query [0].properties.lastBackupStatus -o tsv)
-            echo lastBackupStatus:$CHECK_STATUS
-            if [ "$REQUIRED_STATUS" == "$CHECK_STATUS" ]
-            then
-              echo "Backup is completed sucessfully"
-            exit 0
-            fi
-            sleep 10
-          done
-          echo "Backup creation failed"
-          exit 1
+          az storage account show -g MyResourceGroup -n MyStorageAccount
