@@ -19,13 +19,13 @@ jobs:
           curl -Ls -o azure-cli_bionic_all.deb https://aka.ms/InstallAzureCliBionicEdge && sudo dpkg -i azure-cli_bionic_all.deb
         fi
   - job: file_share_backup
-    displayName: File share on-demand backup
+    displayName: Check Secret Rotation
     steps: 
     - task: AzureCLI@2
-      displayName: 'Azure CLI: Backup file share'
+      displayName: 'Azure CLI: List Storage Accounts'
       inputs:
         scriptType: bash
         azureSubscription: ${{parameters.AZURE_SERVICE_CONNECTION}}
         scriptLocation: inlineScript
         inlineScript: |
-          az storage account show -g MyResourceGroup -n MyStorageAccount
+          az storage account show -g ${{parameters.RESOURCE_GROUP}} -n ${{parameters.STORAGE_ACCOUNT_NAME}}
